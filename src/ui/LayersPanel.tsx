@@ -24,7 +24,7 @@ import {
   TextField,
   useDragAndDrop,
 } from "react-aria-components";
-import { LAYER_COLORS, type Layer } from "../document";
+import { type DrawingObject, LAYER_COLORS, type Layer } from "../document";
 import { count as countOf, t } from "../i18n/strings";
 import { useApp, useSignalTick, useSignalValue } from "./hooks";
 import { ConfirmDialog } from "./kit/ConfirmDialog";
@@ -47,13 +47,19 @@ export function LayersPanel() {
   const app = useApp();
   const layers = useSignalValue(app.doc.layers);
   const currentId = useSignalValue(app.doc.currentLayerId);
+  const selection = useSignalValue(app.selection.ids);
   useSignalTick(app.doc.changed);
   const [renaming, setRenaming] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<Layer | null>(null);
 
   const counts = new Map<string, number>();
-  for (const object of app.doc.state.objects.values())
+  const objectsByLayer = new Map<string, DrawingObject[]>();
+  for (const object of app.doc.state.objects.values()) {
     counts.set(object.layerId, (counts.get(object.layerId) ?? 0) + 1);
+    const objects = objectsByLayer.get(object.layerId) ?? [];
+    objects.push(object);
+    objectsByLayer.set(object.layerId, objects);
+  }
 
   const update = (layer: Layer, label: string, patch: Partial<Omit<Layer, "id">>) =>
     app.doc.transact(label, (d) => d.updateLayer(layer.id, patch));
@@ -230,6 +236,59 @@ export function LayersPanel() {
           );
         }}
       </GridList>
+      <div className="border-t border-line-subtle px-2 py-2">
+        <h3 className="px-1 pb-1 text-2xs font-semibold tracking-wide text-fg-faint uppercase">
+          {t("layers.objects")}
+        </h3>
+        {app.doc.state.objects.size === 0 ? (
+          <p className="px-1 py-1 text-sm text-fg-faint">{t("layers.noObjects")}</p>
+        ) : (
+          layers.map((layer) => {
+            const objects = objectsByLayer.get(layer.id);
+            if (!objects?.length) return null;
+            return (
+              <section key={layer.id} aria-label={layer.name}>
+                <div className="flex h-6 items-center gap-1.5 px-1 text-xs text-fg-muted">
+                  <span className="size-2 rounded-sm" style={{ background: layer.color }} />
+                  <span className="truncate">{layer.name}</span>
+                </div>
+                {objects.map((object) => {
+                  const selected = selection.has(object.id);
+                  return (
+                    <button
+                      key={object.id}
+                      type="button"
+                      aria-label={t("layers.selectObject", {
+                        kind: t(`kind.${object.geometry.kind}`),
+                        id: object.id,
+                      })}
+                      aria-pressed={selected}
+                      disabled={!layer.visible || layer.locked}
+                      onClick={(event) => {
+                        if (event.ctrlKey || event.metaKey) {
+                          app.selection.set(
+                            selected
+                              ? [...selection].filter((id) => id !== object.id)
+                              : [...selection, object.id],
+                          );
+                        } else {
+                          app.selection.set([object.id]);
+                        }
+                      }}
+                      className="flex h-7 w-full items-center gap-2 rounded px-2 pl-5 text-left text-sm outline-none hover:bg-hover focus-visible:ring-1 focus-visible:ring-line-focus disabled:cursor-not-allowed disabled:opacity-50 aria-pressed:bg-selected"
+                    >
+                      <span className="min-w-0 flex-1 truncate">
+                        {t(`kind.${object.geometry.kind}`)}
+                      </span>
+                      <span className="font-mono text-2xs text-fg-faint">{object.id}</span>
+                    </button>
+                  );
+                })}
+              </section>
+            );
+          })
+        )}
+      </div>
       <ConfirmDialog
         isOpen={deleting !== null}
         title={t("layers.confirmTitle", { layer: deleting?.name ?? "" })}

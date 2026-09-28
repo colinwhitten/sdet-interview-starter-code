@@ -4,10 +4,10 @@ Test infrastructure which uses playwright to run end-to-end tests of the browser
 
 | Script | What it does |
 |---|---|
-| `npx playwright install` | Run this once to make sure latest playwright is installed in the directory |
+| `npx playwright install` | You may need to run this once to make sure latest playwright is installed in the directory |
 | `npm run test:e2e` | Runs all the playwright end-to-end tests |
 
-There are some tests which use screenshots to validate state of the viewport- there are already existing screenshots which should work on linux or windows. But if you are using Mac, you will need to update screenshots for mac by running `npx playwright test -u` once. 
+There are some tests which use screenshots to validate state of the viewport- there are already existing screenshots which should work on linux or windows. But if you are using Mac and want to run the tests locally, you will need to update screenshots for mac by running `npx playwright test -u` once. 
 
 
 
